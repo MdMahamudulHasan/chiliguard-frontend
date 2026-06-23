@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChiliGuard • Smart Leaf Disease Detector</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+        :root {
+            --bg: #0f172a;
+            --main-card-bg: #1e293b;
+            --header-green: #065f46;
+            --accent-green: #10b981;
+            --text-white: #ffffff;
+            --text-dim: #94a3b8;
+            --danger-red: #ef4444;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-white);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 1100px;
+            background-color: var(--main-card-bg);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+        }
+
+        /* Header Styles */
+        .header {
+            background-color: var(--header-green);
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        /* Upload Area Styles */
+        .upload-section {
+            padding: 25px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background-color: rgba(0, 0, 0, 0.15);
+        }
+
+        .drop-zone {
+            flex: 1;
+            border: 2px dashed var(--accent-green);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: rgba(16, 185, 129, 0.03);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .drop-zone:hover {
+            background-color: rgba(16, 185, 129, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .drop-zone i {
+            font-size: 2.5rem;
+            color: var(--accent-green);
+            margin-bottom: 8px;
+        }
+
+        .drop-zone p {
+            font-size: 0.95rem;
+            color: var(--text-white);
+            margin-bottom: 4px;
+        }
+
+        #fileName {
+            font-size: 0.85rem;
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .analyze-btn {
+            background-color: #475569;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+            height: fit-content;
+        }
+
+        .analyze-btn:hover:not(:disabled) {
+            background-color: #64748b;
+            transform: scale(1.02);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Result Section Styles */
+        .result-container {
+            display: none;
+            padding: 30px;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .image-side {
+            position: relative;
+            background-color: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .image-side img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #detectionCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .text-side {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .disease-result {
+            font-size: 4.5rem;
+            font-weight: 900;
+            color: var(--danger-red);
+            line-height: 1.1;
+            margin-bottom: 20px;
+            text-transform: capitalize;
+            text-shadow: 0 0 35px rgba(239, 68, 68, 0.4);
+        }
+
+        .confidence-result {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--accent-green);
+        }
+
+        .confidence-result span {
+            color: var(--text-white);
+        }
+
+        /* Utils */
+        #loadingOverlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(15, 23, 42, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 1000;
+            gap: 20px;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error-msg {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger-red);
+            padding: 15px;
+            margin: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            border: 1px solid var(--danger-red);
+        }
+
+        @media (max-width: 800px) {
+            .result-container {
+                grid-template-columns: 1fr;
+                padding: 20px;
+            }
+
+            .disease-result {
+                font-size: 3rem;
+            }
+
+            .header h1 {
+                font-size: 2.2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main-container">
+        <!-- Brand Header -->
+        <header class="header">
+            <h1>ChiliGuard</h1>
+            <p>AI-Powered Chili Leaf Disease Classification and Detection.</p>
+        </header>
+
+        <!-- Upload Interface -->
+        <section class="upload-section">
+            <label for="fileInput" class="drop-zone" id="dropZone">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Drop or click to upload chili leaf image</p>
+                <div id="fileName">No file selected</div>
+                <input type="file" id="fileInput" accept="image/*" hidden>
+            </label>
+
+            <button id="analyzeBtn" class="analyze-btn" disabled>
+                <i class="fas fa-search"></i> Analyze Leaf
+            </button>
+        </section>
+
+        <!-- Error Notification -->
+        <div id="errorBox" class="error-msg"></div>
+
+        <!-- Main Display for Results -->
+        <main class="result-container" id="resultArea">
+            <!-- Left: Visual Analysis (YOLOv9c) -->
+            <div class="image-side">
+                <img id="leafPreview" src="" alt="Analyzed Crop">
+                <canvas id="detectionCanvas"></canvas>
+            </div>
+
+            <!-- Right: Prediction Data (MobileNetV3) -->
+            <div class="text-side">
+                <div id="diseaseName" class="disease-result"></div>
+                <div class="confidence-result">
+                    Confidence: <span id="confidenceValue"></span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Global Loading Overlay -->
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Analyzing Health Status...</p>
+    </div>
+
+    <script>
+        const API_URL = "https://mdmahamudulhasan-chili-detection-and-classification.hf.space/predict";
+
+        const fileInput = document.getElementById('fileInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const fileName = document.getElementById('fileName');
+        const errorBox = document.getElementById('errorBox');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const resultArea = document.getElementById('resultArea');
+        const leafPreview = document.getElementById('leafPreview');
+        const diseaseNameDisplay = document.getElementById('diseaseName');
+        const confidenceDisplay = document.getElementById('confidenceValue');
+        const canvas = document.getElementById('detectionCanvas');
+
+        // File Selection Feedback
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                fileName.textContent = fileInput.files[0].name;
+                analyzeBtn.disabled = false;
+                errorBox.style.display = 'none';
+            } else {
+                fileName.textContent = 'No file selected';
+                analyzeBtn.disabled = true;
+            }
+        });
+
+        // Form Submission
+        analyzeBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            loadingOverlay.style.display = 'flex';
+            analyzeBtn.disabled = true;
+            errorBox.style.display = 'none';
+            resultArea.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                // Optimize: Resize image client-side before upload to save bandwidth
+                const resizedFile = await resizeImage(file, 640);
+                const formData = new FormData();
+                formData.append('image', resizedFile);
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error(`Server status: ${response.status}`);
+
+                const data = await response.json();
+
+                // Set Preview and Handle Canvas
+                const url = URL.createObjectURL(resizedFile);
+                leafPreview.src = url;
+
+                // Update Text purely from MobileNetV3
+                diseaseNameDisplay.textContent = data.mobilenet.disease;
+                confidenceDisplay.textContent = `${data.mobilenet.confidence.toFixed(2)}%`;
+
+                leafPreview.onload = () => {
+                    // Draw boxes from YOLO, but use the label from MobileNet
+                    drawDetections(data.yolo.boxes, data.mobilenet.disease);
+                    resultArea.style.display = 'grid';
+                    loadingOverlay.style.display = 'none';
+                    analyzeBtn.disabled = false;
+                };
+
+            } catch (err) {
+                console.error(err);
+                errorBox.textContent = `Error: ${err.message}`;
+                errorBox.style.display = 'block';
+                loadingOverlay.style.display = 'none';
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        function drawDetections(boxes, labelOverride) {
+            const ctx = canvas.getContext('2d');
+
+            // Adjust canvas size to match image intrinsic dimensions
+            canvas.width = leafPreview.naturalWidth;
+            canvas.height = leafPreview.naturalHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!boxes || boxes.length === 0) return;
+
+            // Styling for boxes
+            const strokeWidth = Math.max(4, Math.floor(canvas.width / 150));
+            ctx.lineWidth = strokeWidth;
+            ctx.strokeStyle = '#ef4444'; // Red for YOLO detection
+
+            // Styling for text
+            const fontSize = Math.max(20, Math.floor(canvas.width / 40));
+            ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+            ctx.textBaseline = 'bottom';
+
+            boxes.forEach(box => {
+                const [x1, y1, x2, y2] = box.bbox;
+
+                // Draw Box
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+                // Use MobileNet label if provided, otherwise fallback to YOLO label
+                const displayLabel = labelOverride || box.label;
+
+                // Use YOLO's confidence for the percentage display
+                const confidenceValue = box.yolo_confidence || box.confidence;
+
+                // Draw Label Background (Shadow for readability)
+                const textLabel = `${displayLabel} (${confidenceValue.toFixed(1)}%)`;
+                const textWidth = ctx.measureText(textLabel).width;
+
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
+                ctx.fillRect(x1, y1 - fontSize - 5, textWidth + 10, fontSize + 5);
+
+                // Draw Text
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(textLabel, x1 + 5, y1 - 2);
+            });
+        }
+
+        // Efficient client-side resizing
+        async function resizeImage(file, maxDimension) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > maxDimension) {
+                                height *= maxDimension / width;
+                                width = maxDimension;
+                            }
+                        } else {
+                            if (height > maxDimension) {
+                                width *= maxDimension / height;
+                                height = maxDimension;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        canvas.toBlob((blob) => {
+                            resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+                        }, 'image/jpeg', 0.85); // 85% quality JPEG for speed/quality balance
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Drag and Drop support
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            const event = new Event('change');
+            fileInput.dispatchEvent(event);
+        }, false);
+
+    </script>
+</body>
+
+</html>
