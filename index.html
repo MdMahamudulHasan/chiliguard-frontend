@@ -332,7 +332,6 @@
             }
         });
 
-        // Form Submission
         analyzeBtn.addEventListener('click', async () => {
             const file = fileInput.files[0];
             if (!file) return;
@@ -342,11 +341,7 @@
             errorBox.style.display = 'none';
             resultArea.style.display = 'none';
 
-            const formData = new FormData();
-            formData.append('image', file);
-
             try {
-                // Optimize: Resize image client-side before upload to save bandwidth
                 const resizedFile = await resizeImage(file, 640);
                 const formData = new FormData();
                 formData.append('image', resizedFile);
@@ -356,21 +351,22 @@
                     body: formData
                 });
 
-                if (!response.ok) throw new Error(`Server status: ${response.status}`);
+                if (!response.ok) {
+                    throw new Error(`Server status: ${response.status} - Check if /predict route is working`);
+                }
 
                 const data = await response.json();
 
-                // Set Preview and Handle Canvas
+                // Preview Image
                 const url = URL.createObjectURL(resizedFile);
                 leafPreview.src = url;
 
-                // Update Text purely from MobileNetV3
-                diseaseNameDisplay.textContent = data.mobilenet.disease;
+                // Show Result
+                diseaseNameDisplay.textContent = data.mobilenet.disease || "Unknown";
                 confidenceDisplay.textContent = `${data.mobilenet.confidence.toFixed(2)}%`;
 
                 leafPreview.onload = () => {
-                    // Draw boxes from YOLO, but use the label from MobileNet
-                    drawDetections(data.yolo.boxes, data.mobilenet.disease);
+                    drawDetections(data.yolo?.boxes || [], data.mobilenet.disease);
                     resultArea.style.display = 'grid';
                     loadingOverlay.style.display = 'none';
                     analyzeBtn.disabled = false;
